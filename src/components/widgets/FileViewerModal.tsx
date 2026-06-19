@@ -51,15 +51,15 @@ export function FileViewerModal({ item, onClose }: FileViewerModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-overlay-strong p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-overlay-strong p-0 backdrop-blur-sm sm:items-center"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-card shadow-lg sm:max-h-[92vh] sm:rounded-2xl"
+        className="relative flex h-[min(92dvh,820px)] max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl bg-card shadow-lg sm:max-h-[92vh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-border-light px-4 py-3 sm:px-5 sm:py-4">
-          <div className="min-w-0 pr-4">
+        <div className="flex items-center justify-between border-b border-border-light px-3 py-3">
+          <div className="min-w-0 pr-3">
             <p className="truncate text-sm font-semibold text-foreground">
               {file.name}
             </p>
@@ -88,12 +88,13 @@ export function FileViewerModal({ item, onClose }: FileViewerModalProps) {
           </div>
         </div>
 
-        <div className="flex flex-1 items-center justify-center overflow-auto bg-background p-4">
+        <div className="flex min-h-0 flex-1 overflow-hidden bg-background">
           {category === "image" && (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={objectUrl}
               alt={file.name}
-              className="max-h-[75vh] max-w-full rounded-lg object-contain"
+              className="h-full w-full object-contain"
             />
           )}
 
@@ -101,7 +102,7 @@ export function FileViewerModal({ item, onClose }: FileViewerModalProps) {
             <iframe
               src={objectUrl}
               title={file.name}
-              className="h-[75vh] w-full rounded-lg border border-border-light bg-card"
+              className="h-full min-h-[60dvh] w-full border-0 bg-card"
             />
           )}
 
@@ -109,25 +110,25 @@ export function FileViewerModal({ item, onClose }: FileViewerModalProps) {
             <video
               src={objectUrl}
               controls
-              className="max-h-[75vh] max-w-full rounded-lg"
+              className="h-full w-full object-contain"
             >
               Your browser does not support video playback.
             </video>
           )}
 
           {category === "audio" && (
-            <div className="flex w-full max-w-md flex-col items-center gap-6 py-8">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-6">
               <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary-light">
                 <FileText className="h-10 w-10 text-primary" />
               </div>
-              <audio src={objectUrl} controls className="w-full">
+              <audio src={objectUrl} controls className="w-full max-w-md">
                 Your browser does not support audio playback.
               </audio>
             </div>
           )}
 
           {category === "other" && (
-            <div className="flex flex-col items-center gap-4 py-12 text-center">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-center">
               <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-surface-muted">
                 <File className="h-12 w-12 text-muted" />
               </div>

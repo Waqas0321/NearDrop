@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { FileText, File, Film, Music, X } from "lucide-react";
 import {
   DroppedFile,
@@ -43,56 +42,83 @@ function FilePreviewTile({
   previewUrl,
   onRemove,
   onView,
+  compact = false,
 }: {
   item: DroppedFile;
   previewUrl?: string;
   onRemove: (id: string) => void;
   onView: (item: DroppedFile) => void;
+  compact?: boolean;
 }) {
   const category = getFileCategory(item.file);
   const isImage = category === "image";
 
   return (
-    <div className="group relative">
-      <button
-        type="button"
-        onClick={() => onView(item)}
-        className="flex w-full flex-col overflow-hidden rounded-lg border border-border-light bg-background text-left transition-all hover:border-primary/40 hover:shadow-sm"
-      >
-        <div className="relative flex h-20 items-center justify-center overflow-hidden bg-surface-muted">
-          {isImage && previewUrl ? (
-            <Image
-              src={previewUrl}
-              alt={item.file.name}
-              fill
-              className="object-cover transition-transform group-hover:scale-105"
-              unoptimized
-            />
-          ) : (
-            <FileTypeIcon category={category} />
-          )}
+    <div
+      className={[
+        "group shrink-0",
+        compact ? "w-20" : "w-full min-w-0",
+      ].join(" ")}
+    >
+      <div className="overflow-hidden rounded-md border border-border-light bg-background transition-all hover:border-primary/40 hover:shadow-sm">
+        <div
+          className={[
+            "relative w-full bg-surface-muted",
+            compact ? "h-16" : "h-[4.5rem]",
+          ].join(" ")}
+        >
+          <button
+            type="button"
+            onClick={() => onView(item)}
+            title={`${item.file.name} (${formatFileSize(item.file.size)})`}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            {isImage && previewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={previewUrl}
+                alt={item.file.name}
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <FileTypeIcon
+                category={category}
+                className={compact ? "h-4 w-4" : "h-5 w-5"}
+              />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(item.id);
+            }}
+            className={[
+              "absolute right-1 top-1 z-10 flex items-center justify-center rounded-full bg-foreground text-white shadow-md ring-1 ring-card",
+              compact ? "h-4 w-4" : "h-5 w-5",
+            ].join(" ")}
+            aria-label={`Remove ${item.file.name}`}
+          >
+            <X className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} strokeWidth={2.5} />
+          </button>
         </div>
-        <div className="border-t border-border-light px-2 py-1.5">
-          <p className="truncate text-[11px] font-medium text-foreground">
+
+        <button
+          type="button"
+          onClick={() => onView(item)}
+          className="w-full border-t border-border-light px-1 py-0.5 text-left"
+        >
+          <p className="truncate text-[10px] font-medium leading-tight text-foreground">
             {item.file.name}
           </p>
-          <p className="text-[9px] text-muted-light">
-            {formatFileSize(item.file.size)}
-          </p>
-        </div>
-      </button>
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(item.id);
-        }}
-        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-white opacity-100 shadow-sm transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
-        aria-label={`Remove ${item.file.name}`}
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
+          {!compact && (
+            <p className="text-[7px] text-muted-light">
+              {formatFileSize(item.file.size)}
+            </p>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
@@ -129,7 +155,7 @@ export function FilePreviewList({
     <div
       className={[
         "shrink-0 border-t border-border-light",
-        compact ? "mt-2 max-h-24 overflow-y-auto pt-2" : "mt-4 pt-4",
+        compact ? "mt-2 pt-2" : "mt-4 pt-4",
       ].join(" ")}
     >
       <p
@@ -140,7 +166,13 @@ export function FilePreviewList({
       >
         Dropped Files ({files.length})
       </p>
-      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+      <div
+        className={
+          compact
+            ? "flex max-h-44 flex-wrap gap-2 overflow-y-auto pt-0.5 pr-0.5"
+            : "grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
+        }
+      >
         {files.map((item) => (
           <FilePreviewTile
             key={item.id}
@@ -148,6 +180,7 @@ export function FilePreviewList({
             previewUrl={previewUrls.get(item.id)}
             onRemove={onRemove}
             onView={onView}
+            compact={compact}
           />
         ))}
       </div>
