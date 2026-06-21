@@ -14,6 +14,8 @@ import {
 interface VisibilityRadiusWidgetProps {
   valueKm: number;
   onChange: (km: number) => void;
+  maxRadiusKm?: number;
+  disabled?: boolean;
 }
 
 function parseRadiusDisplay(value: string): { amount: string; unit: string } {
@@ -24,8 +26,11 @@ function parseRadiusDisplay(value: string): { amount: string; unit: string } {
 export function VisibilityRadiusWidget({
   valueKm,
   onChange,
+  maxRadiusKm = MAX_RADIUS_KM,
+  disabled = false,
 }: VisibilityRadiusWidgetProps) {
-  const sliderIndex = radiusKmToSliderIndex(valueKm);
+  const maxSliderIndex = radiusKmToSliderIndex(maxRadiusKm);
+  const sliderIndex = Math.min(radiusKmToSliderIndex(valueKm), maxSliderIndex);
   const sliderPercent = (sliderIndex / MAX_RADIUS_SLIDER_INDEX) * 100;
   const zone = getRadiusZone(valueKm);
   const display = parseRadiusDisplay(formatVisibilityRadius(valueKm));
@@ -43,7 +48,9 @@ export function VisibilityRadiusWidget({
             <h3 className="text-sm font-bold text-foreground">Visibility Radius</h3>
           </div>
           <p className="mt-1 pl-8 text-xs leading-4 text-muted">
-            Set how far nearby devices can discover you.
+            {maxRadiusKm <= 1
+              ? "Guest mode is limited to 1 KM. Register to expand your reach."
+              : "Set how far nearby devices can discover you."}
           </p>
         </div>
 
@@ -206,13 +213,14 @@ export function VisibilityRadiusWidget({
         <input
           type="range"
           min={0}
-          max={MAX_RADIUS_SLIDER_INDEX}
+          max={maxSliderIndex}
           step={1}
           value={sliderIndex}
+          disabled={disabled}
           onChange={(e) =>
             onChange(sliderIndexToRadiusKm(Number(e.target.value)))
           }
-          className="visibility-radius-slider absolute inset-x-0 top-0 z-10 h-5 w-full cursor-pointer appearance-none bg-transparent"
+          className="visibility-radius-slider absolute inset-x-0 top-0 z-10 h-5 w-full cursor-pointer appearance-none bg-transparent disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Visibility radius"
           aria-valuetext={formatVisibilityRadius(valueKm)}
         />
@@ -233,7 +241,9 @@ export function VisibilityRadiusWidget({
             1 KM
           </span>
           <span className="absolute right-0 top-0 text-muted-light">
-            {MAX_RADIUS_KM} KM
+            {maxRadiusKm < MAX_RADIUS_KM
+              ? `${maxRadiusKm} KM`
+              : `${MAX_RADIUS_KM} KM`}
           </span>
         </div>
       </div>

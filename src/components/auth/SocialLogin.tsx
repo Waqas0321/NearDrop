@@ -1,3 +1,7 @@
+"use client";
+
+import { createClient } from "@/lib/supabase/client";
+
 function AppleLogo({ className }: { className?: string }) {
   return (
     <svg
@@ -35,6 +39,16 @@ function GoogleIcon() {
 }
 
 export function SocialLogin() {
+  const handleOAuth = async (provider: "google" | "apple") => {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+  };
+
   return (
     <div className="mt-6">
       <div className="relative flex items-center">
@@ -48,6 +62,7 @@ export function SocialLogin() {
       <div className="mt-5 flex items-center justify-center gap-4">
         <button
           type="button"
+          onClick={() => handleOAuth("apple")}
           className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:border-primary/40 hover:bg-surface-muted"
           aria-label="Sign in with Apple"
         >
@@ -55,6 +70,7 @@ export function SocialLogin() {
         </button>
         <button
           type="button"
+          onClick={() => handleOAuth("google")}
           className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card transition-colors hover:border-primary/40 hover:bg-surface-muted"
           aria-label="Sign in with Google"
         >

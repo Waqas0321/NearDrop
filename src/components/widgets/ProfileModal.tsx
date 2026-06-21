@@ -4,22 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { X, BadgeCheck, Camera } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { VisibilityRadiusWidget } from "./VisibilityRadiusWidget";
-import {
-  DEFAULT_PROFILE_IMAGE,
-  getProfileImage,
-  getVisibilityRadiusKm,
-  readImageFile,
-  removeProfileImage,
-  setProfileImage,
-  setVisibilityRadiusKm,
-} from "@/lib/profile-storage";
+import { useAuth } from "@/contexts/AuthProvider";
+import { createClient } from "@/lib/supabase/client";
+import { updateProfile, uploadAvatar } from "@/lib/supabase/profile";
+import { DEFAULT_PROFILE_IMAGE, readImageFile } from "@/lib/profile-storage";
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLogout?: () => void;
   onDeleteAccount?: () => void;
-  onProfileImageChange?: (image: string | null) => void;
+  onProfileUpdated?: () => void;
 }
 
 type ConfirmAction = "logout" | "delete" | null;
@@ -29,38 +24,60 @@ export function ProfileModal({
   onClose,
   onLogout,
   onDeleteAccount,
-  onProfileImageChange,
+  onProfileUpdated,
 }: ProfileModalProps) {
+  const { user, profile, maxRadiusKm, refreshProfile } = useAuth();
   const [radiusKm, setRadiusKm] = useState(50);
+  const [displayName, setDisplayName] = useState("NearDrop User");
   const [avatarSrc, setAvatarSrc] = useState(DEFAULT_PROFILE_IMAGE);
   const [error, setError] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setAvatarSrc(getProfileImage() ?? DEFAULT_PROFILE_IMAGE);
-      setRadiusKm(getVisibilityRadiusKm());
+    if (isOpen && profile) {
+      setAvatarSrc(profile.avatar_url ?? DEFAULT_PROFILE_IMAGE);
+      setDisplayName(profile.display_name);
+      setRadiusKm(profile.visibility_radius_km);
       setError(null);
       setConfirmAction(null);
     }
-  }, [isOpen]);
+  }, [isOpen, profile]);
 
-  const handleRadiusChange = (km: number) => {
+  const persistProfile = async (
+    updates: Partial<{
+      display_name: string;
+      avatar_url: string | null;
+      visibility_radius_km: number;
+    }>
+  ) => {
+    if (!user) return;
+    const supabase = createClient();
+    await updateProfile(supabase, user.id, updates);
+    await refreshProfile();
+    onProfileUpdated?.();
+  };
+
+  const handleRadiusChange = async (km: number) => {
     setRadiusKm(km);
-    setVisibilityRadiusKm(km);
+    try {
+      await persistProfile({ visibility_radius_km: km });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update radius.");
+    }
   };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
     try {
       setError(null);
-      const dataUrl = await readImageFile(file);
-      setProfileImage(dataUrl);
-      setAvatarSrc(dataUrl);
-      onProfileImageChange?.(dataUrl);
+      await readImageFile(file);
+      const supabase = createClient();
+      const avatarUrl = await uploadAvatar(supabase, user.id, file);
+      setAvatarSrc(avatarUrl);
+      await persistProfile({ avatar_url: avatarUrl });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to upload image.");
     } finally {
@@ -68,11 +85,13 @@ export function ProfileModal({
     }
   };
 
-  const handleRemoveImage = () => {
-    removeProfileImage();
-    setAvatarSrc(DEFAULT_PROFILE_IMAGE);
-    onProfileImageChange?.(null);
-    setError(null);
+  const handleRemoveImage = async () => {
+    try {
+      setAvatarSrc(DEFAULT_PROFILE_IMAGE);
+      await persistProfile({ avatar_url: null });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove image.");
+    }
   };
 
   const handleConfirm = () => {
@@ -84,9 +103,10 @@ export function ProfileModal({
     setConfirmAction(null);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !profile) return null;
 
-  const hasCustomImage = avatarSrc !== DEFAULT_PROFILE_IMAGE;
+  const hasCustomImage =
+    Boolean(profile.avatar_url) && avatarSrc !== DEFAULT_PROFILE_IMAGE;
 
   return (
     <>
@@ -109,7 +129,9 @@ export function ProfileModal({
         className="fixed inset-x-3 top-[3.75rem] z-[101] max-h-[calc(100dvh-4.5rem)] overflow-y-auto rounded-2xl border border-border bg-surface-modal p-4 shadow-lg sm:inset-x-auto sm:right-6 sm:top-[4.5rem] sm:w-[min(calc(100vw-3rem),22rem)] sm:p-5 lg:right-8"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="pr-8 text-center text-xs text-muted">alex.rivers@neardrop.io</p>
+        <p className="pr-8 text-center text-xs text-muted">
+          {user?.email ?? "Registered account"}
+        </p>
 
         <button
           type="button"
@@ -126,7 +148,6 @@ export function ProfileModal({
           <X className="h-5 w-5" />
         </button>
 
-        {/* Profile header — Gmail-style */}
         <div className="mt-1 flex flex-col items-center">
           <div className="relative">
             <button
@@ -171,13 +192,16 @@ export function ProfileModal({
             </button>
           )}
 
-          <h2 className="mt-1.5 text-base font-bold text-foreground">Alex Rivers</h2>
+          <h2 className="mt-1.5 text-base font-bold text-foreground">
+            {displayName}
+          </h2>
         </div>
 
         <div className="mt-4 border-t border-border-light pt-4">
           <VisibilityRadiusWidget
             valueKm={radiusKm}
             onChange={handleRadiusChange}
+            maxRadiusKm={maxRadiusKm}
           />
         </div>
 
@@ -202,7 +226,7 @@ export function ProfileModal({
       <ConfirmDialog
         isOpen={confirmAction === "logout"}
         title="Log out?"
-        description="You'll need to sign in again to access your account and shared clipboard."
+        description="You'll return to guest mode with a 1 KM sharing limit until you sign in again."
         confirmLabel="Log Out"
         cancelLabel="Cancel"
         variant="danger"
@@ -213,7 +237,7 @@ export function ProfileModal({
       <ConfirmDialog
         isOpen={confirmAction === "delete"}
         title="Delete account?"
-        description="This permanently removes your profile, settings, and saved data. This action cannot be undone."
+        description="This permanently removes your profile, settings, and shared data. This action cannot be undone."
         confirmLabel="Delete Account"
         cancelLabel="Keep Account"
         variant="danger"

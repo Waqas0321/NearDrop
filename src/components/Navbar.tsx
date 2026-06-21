@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface NavbarProps {
-  isLoggedIn?: boolean;
+  isRegistered?: boolean;
+  isGuest?: boolean;
   userInitial?: string;
   profileImage?: string | null;
   onProfileClick?: () => void;
@@ -21,8 +22,9 @@ const navLinks = [
 ];
 
 export function Navbar({
-  isLoggedIn = false,
-  userInitial = "S",
+  isRegistered = false,
+  isGuest = true,
+  userInitial = "G",
   profileImage = null,
   onProfileClick,
 }: NavbarProps) {
@@ -76,7 +78,7 @@ export function Navbar({
 
           <div className="flex items-center justify-end gap-2 justify-self-end sm:gap-3">
             <ThemeToggle />
-            {isLoggedIn ? (
+            {isRegistered ? (
               <button
                 type="button"
                 onClick={onProfileClick}
@@ -96,6 +98,11 @@ export function Navbar({
               </button>
             ) : (
               <>
+                {isGuest && (
+                  <span className="hidden rounded-full bg-primary-light px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary sm:inline">
+                    Guest
+                  </span>
+                )}
                 <Link
                   href="/login"
                   className="text-sm font-medium text-foreground transition-colors hover:text-primary"

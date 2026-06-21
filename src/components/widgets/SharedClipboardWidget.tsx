@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Copy, Trash2, FolderOpen } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FilePreviewList } from "@/components/widgets/FilePreviewList";
 import { FileViewerModal } from "@/components/widgets/FileViewerModal";
+import { RemoteShareFiles } from "@/components/widgets/RemoteShareFiles";
+import { useAuth } from "@/contexts/AuthProvider";
+import { useShareSession } from "@/contexts/ShareSessionProvider";
 import {
   createDroppedFile,
   DroppedFile,
@@ -22,10 +25,25 @@ interface SharedClipboardWidgetProps {
 export function SharedClipboardWidget({
   className = "",
 }: SharedClipboardWidgetProps) {
+  const { isGuest, maxRadiusKm } = useAuth();
+  const {
+    saving,
+    saveMessage,
+    saveError,
+    saveShare,
+    myShare,
+  } = useShareSession();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<DroppedFile[]>([]);
   const [viewingFile, setViewingFile] = useState<DroppedFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hydratedFromSession = useRef(false);
+
+  useEffect(() => {
+    if (!myShare || hydratedFromSession.current) return;
+    if (myShare.text_content) setText(myShare.text_content);
+    hydratedFromSession.current = true;
+  }, [myShare]);
 
   const addFiles = (incoming: File[]) => {
     setFiles((prev) => [...prev, ...incoming.map(createDroppedFile)]);
@@ -58,6 +76,13 @@ export function SharedClipboardWidget({
     }
   };
 
+  const handleSave = async () => {
+    await saveShare({
+      text,
+      files: files.map((item) => item.file),
+    });
+  };
+
   return (
     <>
       <div
@@ -68,9 +93,16 @@ export function SharedClipboardWidget({
           className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl p-4 shadow-md sm:rounded-2xl sm:p-6"
         >
           <div className="mb-2 flex shrink-0 items-center justify-between">
-            <span className="text-label-caps text-muted-light">
-              SHARED CLIPBOARD
-            </span>
+            <div className="flex flex-col">
+              <span className="text-label-caps text-muted-light">
+                SHARED CLIPBOARD
+              </span>
+              <span className="text-[10px] text-muted-light">
+                {isGuest
+                  ? `Guest mode · up to ${maxRadiusKm} KM`
+                  : `Registered · up to ${maxRadiusKm} KM`}
+              </span>
+            </div>
             <div className="flex items-center gap-0.5">
               <button
                 type="button"
@@ -104,6 +136,13 @@ export function SharedClipboardWidget({
             onView={setViewingFile}
             compact
           />
+
+          {files.length === 0 && myShare && myShare.files.length > 0 && (
+            <RemoteShareFiles
+              files={myShare.files}
+              label="Your shared files"
+            />
+          )}
         </Card>
 
         <div
@@ -131,12 +170,25 @@ export function SharedClipboardWidget({
           />
         </div>
 
+        {(saveMessage || saveError) && (
+          <p
+            className={[
+              "mt-2 text-center text-xs",
+              saveError ? "text-danger" : "text-success",
+            ].join(" ")}
+          >
+            {saveError ?? saveMessage}
+          </p>
+        )}
+
         <Button
           variant="primary"
           fullWidth
+          disabled={saving || (!text.trim() && files.length === 0)}
+          onClick={handleSave}
           className="mt-2 h-11 shrink-0 rounded-full text-sm sm:mt-3 sm:h-12"
         >
-          Save
+          {saving ? "Sharing..." : "Share nearby"}
         </Button>
       </div>
 

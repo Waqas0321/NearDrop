@@ -30,6 +30,7 @@ export function AirDropIcon({ size = 32 }: { size?: number }) {
       width={width}
       height={height}
       className="shrink-0"
+      style={{ width: "auto", height }}
       priority
     />
   );

@@ -1,51 +1,72 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import {
+  GuestUpgradeBanner,
+  SupabaseSetupBanner,
+} from "@/components/SupabaseBanners";
 import { SharedClipboardWidget, CLIPBOARD_WIDTH } from "@/components/widgets/SharedClipboardWidget";
+import { NearbySharesList } from "@/components/widgets/NearbySharesList";
 import { FeatureCards } from "@/components/widgets/FeatureCards";
 import { StatusIndicator } from "@/components/widgets/StatusIndicator";
 import { ProfileModal } from "@/components/widgets/ProfileModal";
-import { clearAccountData } from "@/lib/profile-storage";
+import { useAuth } from "@/contexts/AuthProvider";
+import {
+  ShareSessionProvider,
+  useShareSession,
+} from "@/contexts/ShareSessionProvider";
+import { createClient } from "@/lib/supabase/client";
+import { deleteAccountData } from "@/lib/supabase/profile";
 
-export function HomePage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+function HomePageContent() {
+  const {
+    ready,
+    isRegistered,
+    isGuest,
+    profile,
+    signOut,
+    refreshProfile,
+    configured,
+  } = useAuth();
+  const { nearbyCount, searching } = useShareSession();
   const [profileOpen, setProfileOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  useEffect(() => {
-    setIsLoggedIn(localStorage.getItem("neardrop-auth") === "true");
-    const stored = localStorage.getItem("neardrop-profile-image");
-    if (stored) setProfileImage(stored);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("neardrop-auth");
-    setIsLoggedIn(false);
+  const handleLogout = async () => {
+    await signOut();
     setProfileOpen(false);
   };
 
-  const handleDeleteAccount = () => {
-    clearAccountData();
-    setIsLoggedIn(false);
-    setProfileImage(null);
+  const handleDeleteAccount = async () => {
+    if (!configured || !profile) return;
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await deleteAccountData(supabase, user.id);
+    await supabase.auth.signOut();
+    await supabase.auth.signInAnonymously();
     setProfileOpen(false);
   };
+
+  const displayName = profile?.display_name ?? "Guest";
+  const userInitial = displayName.charAt(0).toUpperCase() || "G";
 
   return (
     <>
       <Navbar
-        isLoggedIn={isLoggedIn}
-        profileImage={profileImage}
+        isRegistered={isRegistered}
+        isGuest={isGuest}
+        userInitial={userInitial}
+        profileImage={profile?.avatar_url ?? null}
         onProfileClick={() => setProfileOpen(true)}
       />
 
       <main className="flex flex-1 flex-col items-center">
-        {/* Above the fold: hero → clipboard → drop files → save */}
-        <section
-          className="home-above-fold flex w-full flex-col items-center px-4 pb-6 pt-3 sm:px-6 sm:pb-4 sm:pt-2"
-        >
+        <section className="home-above-fold flex w-full flex-col items-center px-4 pb-6 pt-3 sm:px-6 sm:pb-4 sm:pt-2">
           <div
             className={`mb-3 flex shrink-0 ${CLIPBOARD_WIDTH} flex-col items-center text-center`}
           >
@@ -58,15 +79,21 @@ export function HomePage() {
             </p>
           </div>
 
+          <SupabaseSetupBanner />
+          <GuestUpgradeBanner />
           <SharedClipboardWidget className="min-h-0 flex-1" />
+          {ready && <NearbySharesList />}
         </section>
 
-        {/* Below the fold */}
-        <div
-          className={`flex w-full flex-col items-center px-4 pb-16 pt-10 sm:px-6`}
-        >
+        <div className="flex w-full flex-col items-center px-4 pb-16 pt-10 sm:px-6">
           <div className={`mb-12 flex ${CLIPBOARD_WIDTH} justify-center`}>
-            <StatusIndicator />
+            {ready && (
+              <StatusIndicator
+                searching={searching}
+                nearbyCount={nearbyCount}
+                isGuest={isGuest}
+              />
+            )}
           </div>
 
           <section className="flex w-full justify-center">
@@ -77,13 +104,23 @@ export function HomePage() {
 
       <Footer />
 
-      <ProfileModal
-        isOpen={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        onLogout={handleLogout}
-        onDeleteAccount={handleDeleteAccount}
-        onProfileImageChange={setProfileImage}
-      />
+      {isRegistered && (
+        <ProfileModal
+          isOpen={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          onLogout={handleLogout}
+          onDeleteAccount={handleDeleteAccount}
+          onProfileUpdated={refreshProfile}
+        />
+      )}
     </>
+  );
+}
+
+export function HomePage() {
+  return (
+    <ShareSessionProvider>
+      <HomePageContent />
+    </ShareSessionProvider>
   );
 }

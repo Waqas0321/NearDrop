@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/contexts/AuthProvider";
 import { themeInitScript } from "@/lib/theme";
 import "./globals.css";
 
@@ -35,8 +36,13 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="min-h-full flex flex-col bg-background font-sans text-foreground">
-        <ThemeProvider>{children}</ThemeProvider>
+      <body
+        className="min-h-full flex flex-col bg-background font-sans text-foreground"
+        suppressHydrationWarning
+      >
+        <ThemeProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

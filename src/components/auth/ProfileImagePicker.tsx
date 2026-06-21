@@ -6,7 +6,7 @@ import { readImageFile } from "@/lib/profile-storage";
 
 interface ProfileImagePickerProps {
   value: string | null;
-  onChange: (image: string | null) => void;
+  onChange: (image: string | null, file?: File | null) => void;
 }
 
 export function ProfileImagePicker({ value, onChange }: ProfileImagePickerProps) {
@@ -20,10 +20,10 @@ export function ProfileImagePicker({ value, onChange }: ProfileImagePickerProps)
     try {
       setError(null);
       const dataUrl = await readImageFile(file);
-      onChange(dataUrl);
+      onChange(dataUrl, file);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to upload image.");
-      onChange(null);
+      onChange(null, null);
     } finally {
       e.target.value = "";
     }
@@ -68,7 +68,7 @@ export function ProfileImagePicker({ value, onChange }: ProfileImagePickerProps)
         <button
           type="button"
           onClick={() => {
-            onChange(null);
+            onChange(null, null);
             setError(null);
           }}
           className="mt-1 text-xs text-muted-light transition-colors hover:text-danger"
