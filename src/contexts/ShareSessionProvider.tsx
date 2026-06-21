@@ -17,6 +17,7 @@ import {
 } from "@/lib/geo/location";
 import { createClient } from "@/lib/supabase/client";
 import {
+  deactivateShareSession,
   fetchActiveShareSessions,
   fetchProfilesByIds,
   fetchShareFilesForSession,
@@ -43,8 +44,23 @@ interface ShareSessionContextValue {
   saveShare: (
     payload: Omit<SaveSharePayload, "latitude" | "longitude" | "radiusKm">
   ) => Promise<boolean>;
+  clearShare: () => Promise<boolean>;
   refreshNearby: () => Promise<void>;
   downloadSharedFile: (file: ShareFile) => Promise<string>;
+}
+
+export function pickPrimaryNearbyShare(
+  shares: NearbyShare[]
+): NearbyShare | null {
+  const withContent = shares.filter(
+    (share) => share.text_content.trim() || share.files.length > 0
+  );
+  if (withContent.length === 0) return null;
+
+  return [...withContent].sort(
+    (a, b) =>
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  )[0];
 }
 
 const ShareSessionContext = createContext<ShareSessionContextValue | null>(
@@ -232,6 +248,26 @@ export function ShareSessionProvider({ children }: { children: ReactNode }) {
     [configured, user, maxRadiusKm, refreshNearby]
   );
 
+  const clearShare = useCallback(async () => {
+    if (!configured || !user) return false;
+
+    setSaveError(null);
+    setSaveMessage(null);
+
+    try {
+      const supabase = createClient();
+      await deactivateShareSession(supabase, user.id);
+      setMyShare(null);
+      await refreshNearby();
+      return true;
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Failed to remove your share."
+      );
+      return false;
+    }
+  }, [configured, user, refreshNearby]);
+
   const downloadSharedFile = useCallback(async (file: ShareFile) => {
     const supabase = createClient();
     return getShareFileDownloadUrl(supabase, file.storage_path);
@@ -246,6 +282,7 @@ export function ShareSessionProvider({ children }: { children: ReactNode }) {
     nearbyCount: nearbyShares.length,
     searching,
     saveShare,
+    clearShare,
     refreshNearby,
     downloadSharedFile,
   };

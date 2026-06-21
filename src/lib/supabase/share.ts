@@ -125,9 +125,29 @@ export async function getShareFileDownloadUrl(
 }
 
 export async function deactivateShareSession(supabase: Client, userId: string) {
+  const { data: session, error: fetchError } = await supabase
+    .from("share_sessions")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+
+  if (session) {
+    const { error: filesError } = await supabase
+      .from("share_files")
+      .delete()
+      .eq("session_id", session.id);
+    if (filesError) throw filesError;
+  }
+
   const { error } = await supabase
     .from("share_sessions")
-    .update({ is_active: false, text_content: "", updated_at: new Date().toISOString() })
+    .update({
+      is_active: false,
+      text_content: "",
+      updated_at: new Date().toISOString(),
+    })
     .eq("user_id", userId);
 
   if (error) throw error;
