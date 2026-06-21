@@ -49,18 +49,22 @@ interface ShareSessionContextValue {
   downloadSharedFile: (file: ShareFile) => Promise<string>;
 }
 
+export function sortNearbyShares(shares: NearbyShare[]): NearbyShare[] {
+  return [...shares]
+    .filter(
+      (share) => share.text_content.trim() || share.files.length > 0
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+}
+
 export function pickPrimaryNearbyShare(
   shares: NearbyShare[]
 ): NearbyShare | null {
-  const withContent = shares.filter(
-    (share) => share.text_content.trim() || share.files.length > 0
-  );
-  if (withContent.length === 0) return null;
-
-  return [...withContent].sort(
-    (a, b) =>
-      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-  )[0];
+  const sorted = sortNearbyShares(shares);
+  return sorted[0] ?? null;
 }
 
 const ShareSessionContext = createContext<ShareSessionContextValue | null>(
@@ -279,7 +283,7 @@ export function ShareSessionProvider({ children }: { children: ReactNode }) {
     saveError,
     myShare,
     nearbyShares,
-    nearbyCount: nearbyShares.length,
+    nearbyCount: sortNearbyShares(nearbyShares).length,
     searching,
     saveShare,
     clearShare,
